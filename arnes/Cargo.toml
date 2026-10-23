@@ -1,0 +1,17 @@
+[package]
+name = "rua-arnes"
+version = "0.1.0"
+edition = "2021"
+description = "Arnés de validación del laboratorio RUA (fase 2): evalúa las trazas que recibió el sink contra la firma esperada de cada escenario, con detección de ausencia (silencio) y casos en rojo (perturbación). Mide el estado, nunca asume éxito."
+
+[lib]
+name = "rua_arnes"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rua-arnes"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

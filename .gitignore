@@ -1,0 +1,33 @@
+# Rust
+/target
+**/target
+
+# Configuracion real del lab (nombres de VMs; copiar de rua.config.example.json)
+rua.config.json
+**/rua.config.json
+
+# Log de auditoria
+*.log
+
+# Contrasenas para guestcontrol (NUNCA al repo)
+*.pass
+*.pwd
+secrets/
+
+# Semilla y custodios de ceremonia (NUNCA al repo)
+*.sem
+custodio*
+
+# Artefactos de ceremonia/aprovisionamiento (identidad firmada; no son fuente)
+artefactos-golden/
+
+# Respaldos y salidas de scripts (ruido, no fuente)
+*.bak
+*.out.txt
+sink-eventos.jsonl
+sink-ipconfig*
+sink-netstat*
+
+# Cruft de SO
+.DS_Store
+Thumbs.db

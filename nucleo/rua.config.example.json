@@ -1,0 +1,15 @@
+{
+  "vboxmanage_path": "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe",
+  "risk_level": "bajo",
+  "allow_dangerous": false,
+  "approval_pubkey_hex": null,
+  "audit_log": "rua-audit.log",
+  "consumed_nonces_path": "rua-nonces.json",
+  "vms": [
+    {
+      "name": "golden-win-postura",
+      "snapshots": ["base-limpia", "endurecida", "insegura", "dato-no-consultable"],
+      "allowed_programs": ["C:\\Agente\\eje-latam-agent.exe"]
+    }
+  ]
+}

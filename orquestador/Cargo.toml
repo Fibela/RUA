@@ -1,0 +1,18 @@
+[package]
+name = "rua-orquestador"
+version = "0.1.0"
+edition = "2021"
+description = "Orquestador del laboratorio RUA (fase 2): ejecuta cada escenario contra la golden a través del núcleo (JSON-RPC/MCP), con la secuencia disciplinada del diseño —escrituras-antes-de-start, escuchar-antes-de-provocar, evidencia-antes-de-revertir, nunca instalar sin Verificado— y evalúa la traza del sink con el arnés."
+
+[lib]
+name = "rua_orquestador"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rua-orquestador"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rua-arnes = { path = "../arnes" }

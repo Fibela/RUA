@@ -1,0 +1,15 @@
+{
+  "vboxmanage_path": "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe",
+  "risk_level": "bajo",
+  "allow_dangerous": false,
+  "vms": {
+    "golden-win": {
+      "snapshots": ["base-limpia", "endurecida", "insegura", "dato-no-consultable"],
+      "guest_username": "analista",
+      "guest_password_file": "C:\\Users\\Alexx\\Aura\\secrets\\guest.pwd"
+    }
+  },
+  "audit_log_path": "C:\\Users\\Alexx\\Aura\\nucleo\\rua.audit.log",
+  "approval_pubkey_hex": null,
+  "consumed_nonces_path": "C:\\Users\\Alexx\\Aura\\nucleo\\rua.nonces.json"
+}

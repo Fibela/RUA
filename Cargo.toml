@@ -1,0 +1,9 @@
+[workspace]
+members = ["nucleo", "sink", "arnes", "orquestador"]
+resolver = "2"
+
+# Workspace de RUA (Robotic/Red-team Universal Agent lab).
+# Miembros: núcleo (VBoxManage/MCP), sink (colector syslog), arnes (motor de
+# aserción escenario→firma) y orquestador (ejecuta los escenarios contra la
+# golden a través del núcleo, con la secuencia disciplinada, y los evalúa con
+# el arnés). Falta aprovisionar golden-eje-linux para correrlo de verdad.

@@ -94,6 +94,7 @@ pub enum Firma {
     /// **gravedad** codifica la URGENCIA, NO un juicio de manipulación (§10):
     ///   - 3 (Error, PRI 107): urgente, "no espera".
     ///   - 4 (Aviso, PRI 108): aviso, menos urgente.
+    ///
     /// Si hubo manipulación es una columna APARTE del contrato
     /// (`manipulacion: bool` por condición), NO derivable de la gravedad: hay
     /// condiciones 107 sin manipulación (p. ej. `registroSaturado`). Que en los
@@ -199,9 +200,7 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
             if hay {
                 Resultado::Cumplida
             } else if tr.iter().any(|r| r.evento.clase == "latido") {
-                Resultado::NoCumplida(
-                    "hay latidos pero ninguno con condiciones=ninguna".into(),
-                )
+                Resultado::NoCumplida("hay latidos pero ninguno con condiciones=ninguna".into())
             } else {
                 Resultado::NoMedible("no llegó ningún latido".into())
             }
@@ -216,9 +215,9 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
         }
 
         Firma::AmenazaConAsiento => {
-            let hay = tr.iter().any(|r| {
-                r.evento.clase == "amenaza" && r.evento.campos.contains_key("asiento")
-            });
+            let hay = tr
+                .iter()
+                .any(|r| r.evento.clase == "amenaza" && r.evento.campos.contains_key("asiento"));
             if hay {
                 Resultado::Cumplida
             } else if tr.iter().any(|r| r.evento.clase == "amenaza") {
@@ -276,7 +275,10 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
             }
         }
 
-        Firma::Perturbacion { condicion, gravedad } => {
+        Firma::Perturbacion {
+            condicion,
+            gravedad,
+        } => {
             // Transiciones de la condición esperada que se activan.
             let transiciones = transiciones_activas(tr, condicion);
             let persiste = persiste_en_latido(tr, condicion);
@@ -294,7 +296,11 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
 
             // Hay transición: ¿con la gravedad esperada (el juicio correcto)?
             if transiciones.iter().any(|r| r.evento.gravedad == *gravedad) {
-                let nota = if persiste { "" } else { " (sin confirmación aún en latido)" };
+                let nota = if persiste {
+                    ""
+                } else {
+                    " (sin confirmación aún en latido)"
+                };
                 let _ = nota;
                 Resultado::Cumplida
             } else {
@@ -305,7 +311,11 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
             }
         }
 
-        Firma::Discriminacion { benigna, gravedad_benigna, no_alarmas } => {
+        Firma::Discriminacion {
+            benigna,
+            gravedad_benigna,
+            no_alarmas,
+        } => {
             // ¿Acusó el agente una actualización legítima como si fuera ataque?
             let alarmas: Vec<&str> = no_alarmas
                 .iter()
@@ -328,7 +338,10 @@ pub fn evaluar(firma: &Firma, tr: &[Registro], ahora_ms: u128) -> Resultado {
                     "el agente no emitió '{benigna}' (108): no reconoció la actualización como acción administrativa"
                 ));
             }
-            if benignas.iter().any(|r| r.evento.gravedad == *gravedad_benigna) {
+            if benignas
+                .iter()
+                .any(|r| r.evento.gravedad == *gravedad_benigna)
+            {
                 Resultado::Cumplida
             } else {
                 let vista = benignas[0].evento.gravedad;
@@ -383,13 +396,13 @@ pub enum Corrida {
 /// Agrega veredictos de una corrida con la precedencia del §4: un falso OK del
 /// lab manda sobre todo; luego el fallo del agente; luego lo no medible.
 pub fn agregar(veredictos: &[Veredicto]) -> Corrida {
-    if veredictos.iter().any(|v| *v == Veredicto::FalsoOkDelLab) {
+    if veredictos.contains(&Veredicto::FalsoOkDelLab) {
         return Corrida::FalsoOkDelLab;
     }
-    if veredictos.iter().any(|v| *v == Veredicto::FalloDelAgente) {
+    if veredictos.contains(&Veredicto::FalloDelAgente) {
         return Corrida::FalloDelAgente;
     }
-    if veredictos.iter().any(|v| *v == Veredicto::NoConcluyente) {
+    if veredictos.contains(&Veredicto::NoConcluyente) {
         return Corrida::NoConcluyente;
     }
     Corrida::Aprobada
@@ -511,8 +524,8 @@ pub fn parse_jsonl(texto: &str) -> Result<Vec<Registro>, String> {
         if linea.trim().is_empty() {
             continue;
         }
-        let r: Registro = serde_json::from_str(linea)
-            .map_err(|e| format!("línea {}: {e}", i + 1))?;
+        let r: Registro =
+            serde_json::from_str(linea).map_err(|e| format!("línea {}: {e}", i + 1))?;
         out.push(r);
     }
     Ok(out)
@@ -522,7 +535,14 @@ pub fn parse_jsonl(texto: &str) -> Result<Vec<Registro>, String> {
 mod tests {
     use super::*;
 
-    fn reg(ms: u128, clase: &str, msgid: &str, gravedad: u8, campos: &[(&str, &str)], cond: Option<Vec<&str>>) -> Registro {
+    fn reg(
+        ms: u128,
+        clase: &str,
+        msgid: &str,
+        gravedad: u8,
+        campos: &[(&str, &str)],
+        cond: Option<Vec<&str>>,
+    ) -> Registro {
         let mut m = std::collections::BTreeMap::new();
         for (k, v) in campos {
             m.insert(k.to_string(), v.to_string());
@@ -541,33 +561,62 @@ mod tests {
     }
 
     fn latido(ms: u128, intervalo: &str, cond: Vec<&str>) -> Registro {
-        reg(ms, "latido", "latido-de-sensor", 6, &[("intervaloMs", intervalo), ("latido", "1")], Some(cond))
+        reg(
+            ms,
+            "latido",
+            "latido-de-sensor",
+            6,
+            &[("intervaloMs", intervalo), ("latido", "1")],
+            Some(cond),
+        )
     }
 
     #[test]
     fn calma_cumple() {
         let tr = vec![latido(1000, "60000", vec!["ninguna"])];
-        assert_eq!(evaluar(&Firma::LatidoEnCalma, &tr, 2000), Resultado::Cumplida);
+        assert_eq!(
+            evaluar(&Firma::LatidoEnCalma, &tr, 2000),
+            Resultado::Cumplida
+        );
     }
 
     #[test]
     fn calma_sin_latidos_es_nomedible() {
         let tr: Vec<Registro> = vec![];
-        matches!(evaluar(&Firma::LatidoEnCalma, &tr, 2000), Resultado::NoMedible(_));
-        assert!(matches!(evaluar(&Firma::LatidoEnCalma, &tr, 2000), Resultado::NoMedible(_)));
+        matches!(
+            evaluar(&Firma::LatidoEnCalma, &tr, 2000),
+            Resultado::NoMedible(_)
+        );
+        assert!(matches!(
+            evaluar(&Firma::LatidoEnCalma, &tr, 2000),
+            Resultado::NoMedible(_)
+        ));
     }
 
     #[test]
     fn amenaza_con_asiento_cumple() {
-        let tr = vec![reg(1000, "amenaza", "amenaza-incontenible", 1, &[("asiento", "1508"), ("dispositivo", "x")], None)];
-        assert_eq!(evaluar(&Firma::AmenazaConAsiento, &tr, 2000), Resultado::Cumplida);
+        let tr = vec![reg(
+            1000,
+            "amenaza",
+            "amenaza-incontenible",
+            1,
+            &[("asiento", "1508"), ("dispositivo", "x")],
+            None,
+        )];
+        assert_eq!(
+            evaluar(&Firma::AmenazaConAsiento, &tr, 2000),
+            Resultado::Cumplida
+        );
     }
 
     #[test]
     fn silencio_detectado_pasado_el_umbral() {
         // último latido en t=1000 con intervalo 60000; a los 200000ms (>2×60000)
         let tr = vec![latido(1000, "60000", vec!["ninguna"])];
-        assert_eq!(evaluar(&Firma::Silencio { factor: 2.0 }, &tr, 1000 + 200_000), Resultado::Cumplida);
+        assert_eq!(
+            evaluar(&Firma::Silencio { factor: 2.0 }, &tr, 1000 + 200_000),
+            Resultado::Cumplida
+        );
     }
 
     #[test]
@@ -597,23 +646,44 @@ mod tests {
         // Cumplida y SinSilencioFalso NoCumplida → el auto-chequeo lo cazaría.
         let tr = vec![latido(1000, "60000", vec!["ninguna"])];
         let r = evaluar(&Firma::SinSilencioFalso { factor: 2.0 }, &tr, 1000 + 90_000);
-        assert_eq!(r, Resultado::Cumplida, "con el intervalo del cable no hay silencio a 90s");
+        assert_eq!(
+            r,
+            Resultado::Cumplida,
+            "con el intervalo del cable no hay silencio a 90s"
+        );
         // Prueba de que caza el error: el mismo instante con intervalo 30000
         // (TOML) SÍ daría silencio.
         let tr_malo = vec![latido(1000, "30000", vec!["ninguna"])];
-        let r2 = evaluar(&Firma::SinSilencioFalso { factor: 2.0 }, &tr_malo, 1000 + 90_000);
-        assert!(matches!(r2, Resultado::NoCumplida(_)), "con 30000 el auto-chequeo debe fallar");
+        let r2 = evaluar(
+            &Firma::SinSilencioFalso { factor: 2.0 },
+            &tr_malo,
+            1000 + 90_000,
+        );
+        assert!(
+            matches!(r2, Resultado::NoCumplida(_)),
+            "con 30000 el auto-chequeo debe fallar"
+        );
     }
 
     #[test]
     fn silencio_lee_intervalo_del_latido_no_constante() {
         // intervalo 30000 (PA-147): a los 70000ms ya es silencio con 2× (umbral 60000)
         let tr = vec![latido(1000, "30000", vec!["ninguna"])];
-        assert_eq!(evaluar(&Firma::Silencio { factor: 2.0 }, &tr, 1000 + 70_000), Resultado::Cumplida);
+        assert_eq!(
+            evaluar(&Firma::Silencio { factor: 2.0 }, &tr, 1000 + 70_000),
+            Resultado::Cumplida
+        );
     }
 
     fn condicion(ms: u128, nombre: &str, estado: &str, gravedad: u8) -> Registro {
-        reg(ms, "condicion", "condicion", gravedad, &[("condicion", nombre), ("estado", estado)], None)
+        reg(
+            ms,
+            "condicion",
+            "condicion",
+            gravedad,
+            &[("condicion", nombre), ("estado", estado)],
+            None,
+        )
     }
 
     #[test]
@@ -621,16 +691,33 @@ mod tests {
         // Sólo latidos, ninguna transición de condición → el agente no cazó la
         // manipulación → falso OK del lab → corrida falla.
         let tr = vec![latido(1000, "60000", vec!["ninguna"])];
-        let r = evaluar(&Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 }, &tr, 2000);
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
+            &tr,
+            2000,
+        );
         assert!(matches!(r, Resultado::NoCumplida(_)));
         assert_eq!(veredicto(Clase::Rojo, &r), Veredicto::FalsoOkDelLab);
-        assert_eq!(agregar(&[Veredicto::Correcto, Veredicto::FalsoOkDelLab]), Corrida::FalsoOkDelLab);
+        assert_eq!(
+            agregar(&[Veredicto::Correcto, Veredicto::FalsoOkDelLab]),
+            Corrida::FalsoOkDelLab
+        );
     }
 
     #[test]
     fn rojo_con_transicion_correcta_es_correcto() {
         let tr = vec![condicion(1000, "operativaSuprimida", "activa", 3)];
-        let r = evaluar(&Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 }, &tr, 2000);
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
+            &tr,
+            2000,
+        );
         assert_eq!(r, Resultado::Cumplida);
         assert_eq!(veredicto(Clase::Rojo, &r), Veredicto::Correcto);
     }
@@ -639,8 +726,22 @@ mod tests {
     fn rojo_amenaza_incontenible_no_cuenta_como_queja() {
         // El bug corregido: amenaza-incontenible (gravedad 1) NO es la queja de
         // manipulación. Un rojo con sólo esto debe seguir siendo FALSO-OK-LAB.
-        let tr = vec![reg(1000, "amenaza", "amenaza-incontenible", 1, &[("asiento", "9")], None)];
-        let r = evaluar(&Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 }, &tr, 2000);
+        let tr = vec![reg(
+            1000,
+            "amenaza",
+            "amenaza-incontenible",
+            1,
+            &[("asiento", "9")],
+            None,
+        )];
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
+            &tr,
+            2000,
+        );
         assert!(matches!(r, Resultado::NoCumplida(_)));
         assert_eq!(veredicto(Clase::Rojo, &r), Veredicto::FalsoOkDelLab);
     }
@@ -650,7 +751,14 @@ mod tests {
         // Esperamos 107 (manipulación) pero el agente emitió 108 (aviso):
         // juzgó mal. NoCumplida → para un rojo, falso OK del lab.
         let tr = vec![condicion(1000, "operativaSuprimida", "activa", 4)];
-        let r = evaluar(&Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 }, &tr, 2000);
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
+            &tr,
+            2000,
+        );
         assert!(matches!(r, Resultado::NoCumplida(_)));
         assert_eq!(veredicto(Clase::Rojo, &r), Veredicto::FalsoOkDelLab);
     }
@@ -689,7 +797,14 @@ mod tests {
     fn rojo_sin_clave_recuperacion_es_108() {
         // "sin clave de recuperación" NO es manipulación → 108 (gravedad 4).
         let tr = vec![condicion(1000, "recuperacionNoAprovisionada", "activa", 4)];
-        let r = evaluar(&Firma::Perturbacion { condicion: "recuperacionNoAprovisionada", gravedad: 4 }, &tr, 2000);
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "recuperacionNoAprovisionada",
+                gravedad: 4,
+            },
+            &tr,
+            2000,
+        );
         assert_eq!(r, Resultado::Cumplida);
     }
 
@@ -700,14 +815,28 @@ mod tests {
         let mut lat = latido(5000, "60000", vec!["operativaSuprimida"]);
         lat.recibido_ms = 5000;
         let tr = vec![lat];
-        let r = evaluar(&Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 }, &tr, 6000);
+        let r = evaluar(
+            &Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
+            &tr,
+            6000,
+        );
         assert!(matches!(r, Resultado::NoMedible(_)));
         assert_eq!(veredicto(Clase::Rojo, &r), Veredicto::NoConcluyente);
     }
 
     #[test]
     fn verde_no_cumplido_es_fallo_del_agente() {
-        let tr: Vec<Registro> = vec![reg(1, "amenaza", "amenaza-incontenible", 1, &[("asiento", "1")], None)];
+        let tr: Vec<Registro> = vec![reg(
+            1,
+            "amenaza",
+            "amenaza-incontenible",
+            1,
+            &[("asiento", "1")],
+            None,
+        )];
         // esperábamos calma, llegó amenaza y ningún latido → NoMedible (no latidos)
         let r = evaluar(&Firma::LatidoEnCalma, &tr, 2);
         assert!(matches!(r, Resultado::NoMedible(_)));
@@ -716,10 +845,22 @@ mod tests {
 
     #[test]
     fn agregar_precedencia() {
-        assert_eq!(agregar(&[Veredicto::Correcto, Veredicto::Correcto]), Corrida::Aprobada);
-        assert_eq!(agregar(&[Veredicto::Correcto, Veredicto::NoConcluyente]), Corrida::NoConcluyente);
-        assert_eq!(agregar(&[Veredicto::FalloDelAgente, Veredicto::NoConcluyente]), Corrida::FalloDelAgente);
-        assert_eq!(agregar(&[Veredicto::FalloDelAgente, Veredicto::FalsoOkDelLab]), Corrida::FalsoOkDelLab);
+        assert_eq!(
+            agregar(&[Veredicto::Correcto, Veredicto::Correcto]),
+            Corrida::Aprobada
+        );
+        assert_eq!(
+            agregar(&[Veredicto::Correcto, Veredicto::NoConcluyente]),
+            Corrida::NoConcluyente
+        );
+        assert_eq!(
+            agregar(&[Veredicto::FalloDelAgente, Veredicto::NoConcluyente]),
+            Corrida::FalloDelAgente
+        );
+        assert_eq!(
+            agregar(&[Veredicto::FalloDelAgente, Veredicto::FalsoOkDelLab]),
+            Corrida::FalsoOkDelLab
+        );
     }
 
     #[test]
@@ -728,6 +869,9 @@ mod tests {
         let linea = r#"{"recibido_ms":1791489805347,"origen":"127.0.0.1:49160","evento":{"pri":110,"facilidad":13,"gravedad":6,"version":1,"ts":"2026-09-27T03:40:12.418Z","host":"sensor","app":"eje-agente","procid":"-","msgid":"latido-de-sensor","clase":"latido","campos":{"intervaloMs":"60000","latido":"842"},"condiciones":["ninguna"],"msg_crudo":"x"}}"#;
         let tr = parse_jsonl(linea).unwrap();
         assert_eq!(tr.len(), 1);
-        assert_eq!(evaluar(&Firma::LatidoEnCalma, &tr, 2_000_000_000_000), Resultado::Cumplida);
+        assert_eq!(
+            evaluar(&Firma::LatidoEnCalma, &tr, 2_000_000_000_000),
+            Resultado::Cumplida
+        );
     }
 }

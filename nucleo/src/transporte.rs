@@ -9,9 +9,9 @@
 //!   - `Verificado`  — el hash del guest coincide con el del host.
 //!   - `NoCoincide`  — se midió en ambos lados y NO coincide (fichero mal).
 //!   - `NoMedible`   — no hubo con qué medir: la copia falló, el hasher del
-//!                     guest no está o no se pudo ejecutar, o su salida no trae
-//!                     un hash legible. "No hay con qué medir" ≠ "no cuadra":
-//!                     colapsarlos dejaría al laboratorio ciego sin saberlo.
+//!     guest no está o no se pudo ejecutar, o su salida no trae
+//!     un hash legible. "No hay con qué medir" ≠ "no cuadra":
+//!     colapsarlos dejaría al laboratorio ciego sin saberlo.
 //!
 //! El hasher lo fija el host en la config de la VM (`guest_hasher`), nunca el
 //! cliente, así que esta ejecución interna no pasa por el candado de programas.
@@ -51,10 +51,7 @@ fn sha256_file(path: &str) -> Result<String, NucleoError> {
 
 /// Nombre base de una ruta del host (tras el último `/` o `\`).
 pub fn basename(host_path: &str) -> &str {
-    host_path
-        .rsplit(|c| c == '/' || c == '\\')
-        .next()
-        .unwrap_or(host_path)
+    host_path.rsplit(['/', '\\']).next().unwrap_or(host_path)
 }
 
 /// Extrae un SHA-256 (64 hex) de la salida de un hasher, tolerando el formato
@@ -121,12 +118,20 @@ pub fn copy_in_verified(
     let dest = format!("{}{}{}", guest_dir, entry.guest_sep, basename(host_path));
 
     if let Err(e) = vbox.copy_in(vm, host_path, &dest, user, password_file) {
-        return Ok(armar(Veredicto::NoMedible, None, format!("copyto falló: {e}")));
+        return Ok(armar(
+            Veredicto::NoMedible,
+            None,
+            format!("copyto falló: {e}"),
+        ));
     }
 
     // 2) Hashear en el guest sobre la ruta destino.
     if entry.guest_hasher.is_empty() {
-        return Ok(armar(Veredicto::NoMedible, None, "guest_hasher vacío en la config".into()));
+        return Ok(armar(
+            Veredicto::NoMedible,
+            None,
+            "guest_hasher vacío en la config".into(),
+        ));
     }
     let programa = &entry.guest_hasher[0];
     let args: Vec<String> = entry.guest_hasher[1..]
@@ -188,7 +193,10 @@ mod tests {
         // certutil puede imprimir el hash con espacios entre bytes.
         let salida = "SHA256 hash of file.bin:\nab cd ef 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef 01 23 45 67 89\nCertUtil: -hashfile command completed successfully.";
         let h = parse_hash(salida).unwrap();
-        assert_eq!(h, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
+        assert_eq!(
+            h,
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        );
     }
 
     #[test]
@@ -200,7 +208,10 @@ mod tests {
     fn veredicto_tres_estados() {
         let host = "aa".repeat(32);
         assert_eq!(veredicto(&host, Some(&host)), Veredicto::Verificado);
-        assert_eq!(veredicto(&host, Some(&"bb".repeat(32))), Veredicto::NoCoincide);
+        assert_eq!(
+            veredicto(&host, Some(&"bb".repeat(32))),
+            Veredicto::NoCoincide
+        );
         assert_eq!(veredicto(&host, None), Veredicto::NoMedible);
     }
 

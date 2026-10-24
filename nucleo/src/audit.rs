@@ -56,7 +56,11 @@ impl Audit {
         }
         match last {
             Some(v) => {
-                let h = v.get("hash").and_then(|x| x.as_str()).unwrap_or(GENESIS).to_string();
+                let h = v
+                    .get("hash")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or(GENESIS)
+                    .to_string();
                 let s = v.get("seq").and_then(|x| x.as_u64()).unwrap_or(0);
                 (h, s + 1)
             }
@@ -93,7 +97,10 @@ impl Audit {
     }
 
     fn append(&self, line: &str) -> std::io::Result<()> {
-        let mut f = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
         writeln!(f, "{line}")
     }
 }

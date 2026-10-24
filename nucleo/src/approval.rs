@@ -77,16 +77,15 @@ impl Approvals {
         prog_args: &[String],
         token: &str,
     ) -> Result<(), NucleoError> {
-        let pubkey = self
-            .pubkey
-            .as_ref()
-            .ok_or_else(|| NucleoError::Aprobacion("no hay clave de aprobación configurada".into()))?;
+        let pubkey = self.pubkey.as_ref().ok_or_else(|| {
+            NucleoError::Aprobacion("no hay clave de aprobación configurada".into())
+        })?;
 
         let (payload_hex, sig_hex) = token
             .split_once('.')
             .ok_or_else(|| NucleoError::Aprobacion("token mal formado".into()))?;
-        let payload_bytes =
-            hex_decode(payload_hex).ok_or_else(|| NucleoError::Aprobacion("payload no es hex".into()))?;
+        let payload_bytes = hex_decode(payload_hex)
+            .ok_or_else(|| NucleoError::Aprobacion("payload no es hex".into()))?;
         let sig_bytes =
             hex_decode(sig_hex).ok_or_else(|| NucleoError::Aprobacion("firma no es hex".into()))?;
         let sig_arr: [u8; 64] = sig_bytes
@@ -109,10 +108,14 @@ impl Approvals {
             return Err(NucleoError::Aprobacion("token expirado".into()));
         }
         if payload.vm != vm || payload.program != program {
-            return Err(NucleoError::Aprobacion("el token no corresponde a esta petición".into()));
+            return Err(NucleoError::Aprobacion(
+                "el token no corresponde a esta petición".into(),
+            ));
         }
         if payload.args_hash != args_hash(prog_args) {
-            return Err(NucleoError::Aprobacion("los argumentos no coinciden con el token".into()));
+            return Err(NucleoError::Aprobacion(
+                "los argumentos no coinciden con el token".into(),
+            ));
         }
 
         // 3) Anti-replay persistente: el nonce se usa una sola vez. Se verifica
@@ -121,7 +124,9 @@ impl Approvals {
         {
             let seen = self.seen_nonces.borrow();
             if seen.contains(&payload.nonce) {
-                return Err(NucleoError::Aprobacion("token ya usado (nonce repetido)".into()));
+                return Err(NucleoError::Aprobacion(
+                    "token ya usado (nonce repetido)".into(),
+                ));
             }
         }
         self.seen_nonces.borrow_mut().insert(payload.nonce.clone());
@@ -199,7 +204,11 @@ mod tests {
     #[test]
     fn token_valido_pasa() {
         let sk = SigningKey::from_bytes(&[7u8; 32]);
-        let ap = Approvals::new(&Some(hex_encode(sk.verifying_key().as_bytes())), tmp_nonces()).unwrap();
+        let ap = Approvals::new(
+            &Some(hex_encode(sk.verifying_key().as_bytes())),
+            tmp_nonces(),
+        )
+        .unwrap();
         let args = vec!["muestra.exe".to_string()];
         let tok = mint(&sk, "golden", "det.exe", &args, "n1", now_ms() + 60_000);
         assert!(ap.verify("golden", "det.exe", &args, &tok).is_ok());
@@ -208,7 +217,11 @@ mod tests {
     #[test]
     fn vm_distinta_falla() {
         let sk = SigningKey::from_bytes(&[7u8; 32]);
-        let ap = Approvals::new(&Some(hex_encode(sk.verifying_key().as_bytes())), tmp_nonces()).unwrap();
+        let ap = Approvals::new(
+            &Some(hex_encode(sk.verifying_key().as_bytes())),
+            tmp_nonces(),
+        )
+        .unwrap();
         let args = vec!["muestra.exe".to_string()];
         let tok = mint(&sk, "golden", "det.exe", &args, "n2", now_ms() + 60_000);
         assert!(ap.verify("otra-vm", "det.exe", &args, &tok).is_err());
@@ -217,7 +230,11 @@ mod tests {
     #[test]
     fn nonce_repetido_falla() {
         let sk = SigningKey::from_bytes(&[7u8; 32]);
-        let ap = Approvals::new(&Some(hex_encode(sk.verifying_key().as_bytes())), tmp_nonces()).unwrap();
+        let ap = Approvals::new(
+            &Some(hex_encode(sk.verifying_key().as_bytes())),
+            tmp_nonces(),
+        )
+        .unwrap();
         let args = vec!["muestra.exe".to_string()];
         let tok = mint(&sk, "golden", "det.exe", &args, "n3", now_ms() + 60_000);
         assert!(ap.verify("golden", "det.exe", &args, &tok).is_ok());
@@ -231,7 +248,14 @@ mod tests {
         let path = tmp_nonces();
         let pk = hex_encode(sk.verifying_key().as_bytes());
         let args = vec!["muestra.exe".to_string()];
-        let tok = mint(&sk, "golden", "det.exe", &args, "npersist", now_ms() + 600_000);
+        let tok = mint(
+            &sk,
+            "golden",
+            "det.exe",
+            &args,
+            "npersist",
+            now_ms() + 600_000,
+        );
         // Primer "proceso": consume el nonce.
         {
             let ap = Approvals::new(&Some(pk.clone()), path.clone()).unwrap();
@@ -240,7 +264,14 @@ mod tests {
         // Segundo "proceso": recarga del disco y debe rechazar el replay.
         {
             let ap = Approvals::new(&Some(pk), path.clone()).unwrap();
-            let tok2 = mint(&sk, "golden", "det.exe", &args, "npersist", now_ms() + 600_000);
+            let tok2 = mint(
+                &sk,
+                "golden",
+                "det.exe",
+                &args,
+                "npersist",
+                now_ms() + 600_000,
+            );
             assert!(ap.verify("golden", "det.exe", &args, &tok2).is_err());
         }
         let _ = std::fs::remove_file(&path);
@@ -250,9 +281,20 @@ mod tests {
     fn otra_llave_falla() {
         let sk = SigningKey::from_bytes(&[7u8; 32]);
         let impostor = SigningKey::from_bytes(&[9u8; 32]);
-        let ap = Approvals::new(&Some(hex_encode(sk.verifying_key().as_bytes())), tmp_nonces()).unwrap();
+        let ap = Approvals::new(
+            &Some(hex_encode(sk.verifying_key().as_bytes())),
+            tmp_nonces(),
+        )
+        .unwrap();
         let args = vec!["muestra.exe".to_string()];
-        let tok = mint(&impostor, "golden", "det.exe", &args, "n4", now_ms() + 60_000);
+        let tok = mint(
+            &impostor,
+            "golden",
+            "det.exe",
+            &args,
+            "n4",
+            now_ms() + 60_000,
+        );
         assert!(ap.verify("golden", "det.exe", &args, &tok).is_err());
     }
 
@@ -266,9 +308,20 @@ mod tests {
     #[test]
     fn expirado_falla() {
         let sk = SigningKey::from_bytes(&[7u8; 32]);
-        let ap = Approvals::new(&Some(hex_encode(sk.verifying_key().as_bytes())), tmp_nonces()).unwrap();
+        let ap = Approvals::new(
+            &Some(hex_encode(sk.verifying_key().as_bytes())),
+            tmp_nonces(),
+        )
+        .unwrap();
         let args = vec!["muestra.exe".to_string()];
-        let tok = mint(&sk, "golden", "det.exe", &args, "nexp", now_ms().saturating_sub(1));
+        let tok = mint(
+            &sk,
+            "golden",
+            "det.exe",
+            &args,
+            "nexp",
+            now_ms().saturating_sub(1),
+        );
         assert!(ap.verify("golden", "det.exe", &args, &tok).is_err());
     }
 }

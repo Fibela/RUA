@@ -109,7 +109,7 @@ fn arg_vm(vm: &str) -> Value {
 /// Material que firma inventarios/configuraciones: no se transporta jamás.
 pub fn es_semilla(host_path: &str) -> bool {
     host_path
-        .rsplit(|c| c == '/' || c == '\\')
+        .rsplit(['/', '\\'])
         .next()
         .unwrap_or(host_path)
         .to_ascii_lowercase()
@@ -117,7 +117,14 @@ pub fn es_semilla(host_path: &str) -> bool {
 }
 
 /// Ejecuta un `Op` de guestcontrol que necesita credenciales.
-fn run_guest(n: &mut dyn Nucleo, vm: &str, user: &str, pwd: &str, program: &str, args: &[String]) -> Result<Value, String> {
+fn run_guest(
+    n: &mut dyn Nucleo,
+    vm: &str,
+    user: &str,
+    pwd: &str,
+    program: &str,
+    args: &[String],
+) -> Result<Value, String> {
     n.tool(
         "rua.run",
         json!({ "vm": vm, "program": program, "args": args, "guest_user": user, "password_file": pwd }),
@@ -143,7 +150,10 @@ pub fn ejecutar(
     // 0. Revert al limpio SOLO si el escenario lo tolera.
     if plan.tolera_revert {
         if let Some(snap) = &plan.snapshot_base {
-            if let Err(e) = n.tool("rua.snapshot_restore", json!({ "vm": plan.vm, "snapshot": snap })) {
+            if let Err(e) = n.tool(
+                "rua.snapshot_restore",
+                json!({ "vm": plan.vm, "snapshot": snap }),
+            ) {
                 return abort(format!("revert inicial falló: {e}"));
             }
         }
@@ -158,7 +168,11 @@ pub fn ejecutar(
     // 2. FASE escrituras: todas antes de arrancar el agente.
     for op in &plan.escrituras_almacen {
         match op {
-            Op::CopyInVerificado { host_path, guest_dir, esperado_sha256 } => {
+            Op::CopyInVerificado {
+                host_path,
+                guest_dir,
+                esperado_sha256,
+            } => {
                 // La semilla (`*.sem`) NUNCA entra a una golden: puede firmar
                 // inventarios y configuraciones que un sensor creerá. Vive solo
                 // donde corre la ceremonia; RUA se niega a transportarla.
@@ -196,7 +210,14 @@ pub fn ejecutar(
                 }
             }
             Op::Run { program, args } => {
-                if let Err(e) = run_guest(n, &plan.vm, &plan.guest_user, &plan.password_file, program, args) {
+                if let Err(e) = run_guest(
+                    n,
+                    &plan.vm,
+                    &plan.guest_user,
+                    &plan.password_file,
+                    program,
+                    args,
+                ) {
                     return abort(format!("escritura en almacén ('{program}') falló: {e}"));
                 }
             }
@@ -210,7 +231,14 @@ pub fn ejecutar(
     // 3. FASE arrancar el agente.
     match &plan.arrancar_agente {
         Op::Run { program, args } => {
-            if let Err(e) = run_guest(n, &plan.vm, &plan.guest_user, &plan.password_file, program, args) {
+            if let Err(e) = run_guest(
+                n,
+                &plan.vm,
+                &plan.guest_user,
+                &plan.password_file,
+                program,
+                args,
+            ) {
                 return abort(format!("arrancar el agente falló: {e}"));
             }
         }
@@ -219,7 +247,9 @@ pub fn ejecutar(
 
     // 4. Dejar emitir.
     if plan.espera_emisiones_ms > 0 {
-        std::thread::sleep(std::time::Duration::from_millis(plan.espera_emisiones_ms.min(5000)));
+        std::thread::sleep(std::time::Duration::from_millis(
+            plan.espera_emisiones_ms.min(5000),
+        ));
     }
 
     // 5. FASE evidencia — ANTES de cualquier revert.
@@ -229,7 +259,9 @@ pub fn ejecutar(
             json!({ "vm": plan.vm, "guest_path": guest_path, "host_dir": host_dir,
                     "guest_user": plan.guest_user, "password_file": plan.password_file }),
         ) {
-            return abort(format!("collect de evidencia '{guest_path}' falló (antes de revertir): {e}"));
+            return abort(format!(
+                "collect de evidencia '{guest_path}' falló (antes de revertir): {e}"
+            ));
         }
     }
 
@@ -248,7 +280,10 @@ pub fn ejecutar(
     // 8. Limpieza: revertir SOLO si tolera (y ya se recolectó la evidencia).
     if plan.tolera_revert {
         if let Some(snap) = &plan.snapshot_base {
-            let _ = n.tool("rua.snapshot_restore", json!({ "vm": plan.vm, "snapshot": snap }));
+            let _ = n.tool(
+                "rua.snapshot_restore",
+                json!({ "vm": plan.vm, "snapshot": snap }),
+            );
         }
     }
 
@@ -256,7 +291,12 @@ pub fn ejecutar(
         rua_arnes::Resultado::Cumplida => "firma cumplida".to_string(),
         rua_arnes::Resultado::NoCumplida(m) | rua_arnes::Resultado::NoMedible(m) => m.clone(),
     };
-    ResultadoEscenario { nombre: plan.nombre.clone(), veredicto: v, detalle, abortado: None }
+    ResultadoEscenario {
+        nombre: plan.nombre.clone(),
+        veredicto: v,
+        detalle,
+        abortado: None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +325,12 @@ impl NucleoStdio {
             .map_err(|e| format!("no se pudo lanzar el núcleo: {e}"))?;
         let stdin = hijo.stdin.take().ok_or("sin stdin")?;
         let stdout = BufReader::new(hijo.stdout.take().ok_or("sin stdout")?);
-        let mut s = Self { hijo, stdin, stdout, id: 0 };
+        let mut s = Self {
+            hijo,
+            stdin,
+            stdout,
+            id: 0,
+        };
         s.rpc("initialize", json!({}))?;
         Ok(s)
     }
@@ -297,7 +342,10 @@ impl NucleoStdio {
         self.stdin.flush().map_err(|e| e.to_string())?;
         loop {
             let mut linea = String::new();
-            let n = self.stdout.read_line(&mut linea).map_err(|e| e.to_string())?;
+            let n = self
+                .stdout
+                .read_line(&mut linea)
+                .map_err(|e| e.to_string())?;
             if n == 0 {
                 return Err("el núcleo cerró stdout".into());
             }
@@ -310,7 +358,11 @@ impl NucleoStdio {
             };
             if v.get("id").and_then(|x| x.as_i64()) == Some(self.id) {
                 if let Some(err) = v.get("error") {
-                    return Err(err.get("message").and_then(|m| m.as_str()).unwrap_or("error").to_string());
+                    return Err(err
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("error")
+                        .to_string());
                 }
                 return Ok(v.get("result").cloned().unwrap_or(json!({})));
             }
@@ -321,11 +373,21 @@ impl NucleoStdio {
 impl Nucleo for NucleoStdio {
     fn tool(&mut self, nombre: &str, args: Value) -> Result<Value, String> {
         let result = self.rpc("tools/call", json!({ "name": nombre, "arguments": args }))?;
-        if result.get("isError").and_then(|x| x.as_bool()).unwrap_or(false) {
-            let t = result.pointer("/content/0/text").and_then(|x| x.as_str()).unwrap_or("error");
+        if result
+            .get("isError")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false)
+        {
+            let t = result
+                .pointer("/content/0/text")
+                .and_then(|x| x.as_str())
+                .unwrap_or("error");
             return Err(t.to_string());
         }
-        let text = result.pointer("/content/0/text").and_then(|x| x.as_str()).unwrap_or("");
+        let text = result
+            .pointer("/content/0/text")
+            .and_then(|x| x.as_str())
+            .unwrap_or("");
         // copy_in_verified devuelve JSON (con "veredicto"); el resto, texto.
         match serde_json::from_str::<Value>(text) {
             Ok(v) if v.is_object() => Ok(v),
@@ -356,16 +418,30 @@ mod tests {
         fn tool(&mut self, nombre: &str, args: Value) -> Result<Value, String> {
             // Etiqueta legible de la llamada, para el log de orden.
             let etiqueta = match nombre {
-                "rua.run" => format!("run:{}", args.get("program").and_then(|x| x.as_str()).unwrap_or("")),
-                "rua.collect" => format!("collect:{}", args.get("guest_path").and_then(|x| x.as_str()).unwrap_or("")),
+                "rua.run" => format!(
+                    "run:{}",
+                    args.get("program").and_then(|x| x.as_str()).unwrap_or("")
+                ),
+                "rua.collect" => format!(
+                    "collect:{}",
+                    args.get("guest_path")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                ),
                 "rua.copy_in_verified" => "copy_in_verified".to_string(),
                 otro => otro.to_string(),
             };
             self.log.borrow_mut().push(etiqueta);
             if nombre == "rua.copy_in_verified" {
-                let ver = if self.copy_verificado { "Verificado" } else { "NoCoincide" };
+                let ver = if self.copy_verificado {
+                    "Verificado"
+                } else {
+                    "NoCoincide"
+                };
                 // guest_sha256 fijo para probar el gate de identidad.
-                return Ok(json!({ "veredicto": ver, "guest_sha256": "deadbeef", "host_sha256": "deadbeef" }));
+                return Ok(
+                    json!({ "veredicto": ver, "guest_sha256": "deadbeef", "host_sha256": "deadbeef" }),
+                );
             }
             Ok(json!({ "status": 0, "stdout": "", "stderr": "" }))
         }
@@ -379,17 +455,24 @@ mod tests {
             snapshot_base: Some("base-identidad-anclada".into()),
             guest_user: "vboxuser".into(),
             password_file: "/x".into(),
-            escrituras_almacen: vec![
-                Op::Run { program: "/bin/rm".into(), args: vec!["/var/lib/eje/clave".into()] },
-            ],
-            arrancar_agente: Op::Run { program: "/usr/bin/systemctl".into(), args: vec!["start".into(), "eje-agente".into()] },
+            escrituras_almacen: vec![Op::Run {
+                program: "/bin/rm".into(),
+                args: vec!["/var/lib/eje/clave".into()],
+            }],
+            arrancar_agente: Op::Run {
+                program: "/usr/bin/systemctl".into(),
+                args: vec!["start".into(), "eje-agente".into()],
+            },
             espera_emisiones_ms: 0,
             evidencia: vec![
                 ("/var/lib/eje/evidencia.alm".into(), "/host/ev".into()),
                 ("/var/lib/eje/evidencia.anc".into(), "/host/ev".into()),
                 ("/var/lib/eje/centinela.dat".into(), "/host/ev".into()),
             ],
-            firma: Firma::Perturbacion { condicion: "operativaSuprimida", gravedad: 3 },
+            firma: Firma::Perturbacion {
+                condicion: "operativaSuprimida",
+                gravedad: 3,
+            },
             clase: Clase::Rojo,
         }
     }
@@ -401,20 +484,32 @@ mod tests {
     #[test]
     fn secuencia_escrituras_antes_de_arrancar_agente() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: true };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: true,
+        };
         let plan = plan_base();
         let mut cargar = || traza_queja();
         let _ = ejecutar(&mut n, &plan, &mut cargar, 2000);
         let l = log.borrow();
         let i_escritura = l.iter().position(|x| x == "run:/bin/rm").unwrap();
-        let i_arranque = l.iter().position(|x| x == "run:/usr/bin/systemctl").unwrap();
-        assert!(i_escritura < i_arranque, "la escritura al almacén debe ir antes de arrancar el agente: {l:?}");
+        let i_arranque = l
+            .iter()
+            .position(|x| x == "run:/usr/bin/systemctl")
+            .unwrap();
+        assert!(
+            i_escritura < i_arranque,
+            "la escritura al almacén debe ir antes de arrancar el agente: {l:?}"
+        );
     }
 
     #[test]
     fn evidencia_antes_de_revertir_de_limpieza() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: true };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: true,
+        };
         let plan = plan_base();
         let mut cargar = || traza_queja();
         let _ = ejecutar(&mut n, &plan, &mut cargar, 2000);
@@ -422,13 +517,19 @@ mod tests {
         let i_evidencia = l.iter().rposition(|x| x.starts_with("collect:")).unwrap();
         // El revert de limpieza es el ÚLTIMO snapshot_restore.
         let i_revert_limpieza = l.iter().rposition(|x| x == "rua.snapshot_restore").unwrap();
-        assert!(i_evidencia < i_revert_limpieza, "la evidencia debe recolectarse antes del revert de limpieza: {l:?}");
+        assert!(
+            i_evidencia < i_revert_limpieza,
+            "la evidencia debe recolectarse antes del revert de limpieza: {l:?}"
+        );
     }
 
     #[test]
     fn copy_no_verificado_aborta_sin_arrancar() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: false };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: false,
+        };
         let mut plan = plan_base();
         plan.escrituras_almacen = vec![Op::CopyInVerificado {
             host_path: "/host/muestra".into(),
@@ -440,7 +541,10 @@ mod tests {
         assert!(r.abortado.is_some());
         assert_eq!(r.veredicto, Veredicto::NoConcluyente);
         let l = log.borrow();
-        assert!(!l.iter().any(|x| x == "run:/usr/bin/systemctl"), "no debe arrancar el agente si la entrega no se verificó: {l:?}");
+        assert!(
+            !l.iter().any(|x| x == "run:/usr/bin/systemctl"),
+            "no debe arrancar el agente si la entrega no se verificó: {l:?}"
+        );
     }
 
     #[test]
@@ -448,7 +552,10 @@ mod tests {
         // El transporte da Verificado (origen==destino), pero el binario NO es
         // el de procedencia registrada → no se instala, no se arranca.
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: true };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: true,
+        };
         let mut plan = plan_base();
         plan.escrituras_almacen = vec![Op::CopyInVerificado {
             host_path: "/host/eje-agente".into(),
@@ -459,13 +566,19 @@ mod tests {
         let r = ejecutar(&mut n, &plan, &mut cargar, 2000);
         assert!(r.abortado.as_deref().unwrap_or("").contains("procedencia"));
         let l = log.borrow();
-        assert!(!l.iter().any(|x| x == "run:/usr/bin/systemctl"), "binario de procedencia equivocada no debe arrancar: {l:?}");
+        assert!(
+            !l.iter().any(|x| x == "run:/usr/bin/systemctl"),
+            "binario de procedencia equivocada no debe arrancar: {l:?}"
+        );
     }
 
     #[test]
     fn identidad_binario_correcto_pasa() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log, copy_verificado: true };
+        let mut n = NucleoMock {
+            log,
+            copy_verificado: true,
+        };
         let mut plan = plan_base();
         plan.escrituras_almacen = vec![Op::CopyInVerificado {
             host_path: "/host/eje-agente".into(),
@@ -474,7 +587,11 @@ mod tests {
         }];
         let mut cargar = || traza_queja();
         let r = ejecutar(&mut n, &plan, &mut cargar, 2000);
-        assert!(r.abortado.is_none(), "el binario correcto no debe abortar: {:?}", r.abortado);
+        assert!(
+            r.abortado.is_none(),
+            "el binario correcto no debe abortar: {:?}",
+            r.abortado
+        );
     }
 
     #[test]
@@ -484,7 +601,10 @@ mod tests {
         assert!(!es_semilla("/host/inventario.inv"));
         // Un plan que intente copiar una semilla se aborta SIN arrancar.
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: true };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: true,
+        };
         let mut plan = plan_base();
         plan.escrituras_almacen = vec![Op::CopyInVerificado {
             host_path: "/home/u/cliente.sem".into(),
@@ -495,27 +615,42 @@ mod tests {
         let r = ejecutar(&mut n, &plan, &mut cargar, 2000);
         assert!(r.abortado.as_deref().unwrap_or("").contains("semilla"));
         let l = log.borrow();
-        assert!(!l.iter().any(|x| x == "copy_in_verified"), "no debe ni intentar copiar la semilla: {l:?}");
-        assert!(!l.iter().any(|x| x == "run:/usr/bin/systemctl"), "no debe arrancar el agente: {l:?}");
+        assert!(
+            !l.iter().any(|x| x == "copy_in_verified"),
+            "no debe ni intentar copiar la semilla: {l:?}"
+        );
+        assert!(
+            !l.iter().any(|x| x == "run:/usr/bin/systemctl"),
+            "no debe arrancar el agente: {l:?}"
+        );
     }
 
     #[test]
     fn persistente_no_revierte() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log: log.clone(), copy_verificado: true };
+        let mut n = NucleoMock {
+            log: log.clone(),
+            copy_verificado: true,
+        };
         let mut plan = plan_base();
         plan.tolera_revert = false; // escenario de marca de agua / registro
         plan.nombre = "rojo-marca-de-agua".into();
         let mut cargar = || traza_queja();
         let _ = ejecutar(&mut n, &plan, &mut cargar, 2000);
         let l = log.borrow();
-        assert!(!l.iter().any(|x| x == "rua.snapshot_restore"), "una VM persistente no debe revertirse nunca: {l:?}");
+        assert!(
+            !l.iter().any(|x| x == "rua.snapshot_restore"),
+            "una VM persistente no debe revertirse nunca: {l:?}"
+        );
     }
 
     #[test]
     fn rojo_con_queja_da_correcto() {
         let log = Rc::new(RefCell::new(Vec::new()));
-        let mut n = NucleoMock { log, copy_verificado: true };
+        let mut n = NucleoMock {
+            log,
+            copy_verificado: true,
+        };
         let plan = plan_base();
         let mut cargar = || traza_queja();
         let r = ejecutar(&mut n, &plan, &mut cargar, 2000);

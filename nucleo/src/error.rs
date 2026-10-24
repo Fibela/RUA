@@ -27,10 +27,16 @@ impl fmt::Display for NucleoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NucleoError::VmNoPermitida(vm) => {
-                write!(f, "VM no permitida: '{vm}' no está en la allowlist de la configuración")
+                write!(
+                    f,
+                    "VM no permitida: '{vm}' no está en la allowlist de la configuración"
+                )
             }
             NucleoError::SnapshotNoPermitido { vm, snapshot } => {
-                write!(f, "snapshot no permitido: '{snapshot}' no está declarado para la VM '{vm}'")
+                write!(
+                    f,
+                    "snapshot no permitido: '{snapshot}' no está declarado para la VM '{vm}'"
+                )
             }
             NucleoError::Rechazada(motivo) => write!(f, "operación rechazada: {motivo}"),
             NucleoError::Aprobacion(motivo) => write!(f, "aprobación rechazada: {motivo}"),

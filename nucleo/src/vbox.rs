@@ -57,7 +57,12 @@ impl<'a> Vbox<'a> {
                 snapshot: snapshot.to_string(),
             });
         }
-        self.run_raw(&["snapshot".into(), vm.into(), "restore".into(), snapshot.into()])
+        self.run_raw(&[
+            "snapshot".into(),
+            vm.into(),
+            "restore".into(),
+            snapshot.into(),
+        ])
     }
 
     pub fn start(&self, vm: &str, headless: bool) -> Result<String, NucleoError> {

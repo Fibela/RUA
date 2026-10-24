@@ -356,7 +356,10 @@ mod tests {
         assert_eq!(ev.campos.get("latido").unwrap(), "842");
         assert_eq!(ev.campos.get("asiento").unwrap(), "1507");
         // En calma, `condiciones=ninguna` es una afirmación, no ausencia.
-        assert_eq!(ev.condiciones.as_ref().unwrap(), &vec!["ninguna".to_string()]);
+        assert_eq!(
+            ev.condiciones.as_ref().unwrap(),
+            &vec!["ninguna".to_string()]
+        );
     }
 
     #[test]

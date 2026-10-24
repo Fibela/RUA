@@ -41,7 +41,8 @@ fn main() {
 
     // Verificador de aprobaciones host-side (clave pública del aprobador +
     // persistencia de nonces consumidos).
-    let approvals = match Approvals::new(&cfg.approval_pubkey_hex, cfg.consumed_nonces_path.clone()) {
+    let approvals = match Approvals::new(&cfg.approval_pubkey_hex, cfg.consumed_nonces_path.clone())
+    {
         Ok(a) => a,
         Err(e) => {
             eprintln!("[rua-nucleo] error de aprobación: {e}");
@@ -74,7 +75,10 @@ fn main() {
         let req: Value = match serde_json::from_str(&line) {
             Ok(v) => v,
             Err(e) => {
-                write_message(&mut out, &rpc_error(Value::Null, -32700, &format!("JSON inválido: {e}")));
+                write_message(
+                    &mut out,
+                    &rpc_error(Value::Null, -32700, &format!("JSON inválido: {e}")),
+                );
                 continue;
             }
         };
@@ -101,7 +105,10 @@ fn main() {
             },
             other => {
                 if let Some(id) = id {
-                    write_message(&mut out, &rpc_error(id, -32601, &format!("método no soportado: {other}")));
+                    write_message(
+                        &mut out,
+                        &rpc_error(id, -32601, &format!("método no soportado: {other}")),
+                    );
                 }
             }
         }
@@ -117,8 +124,15 @@ fn handle_call(
     req: &Value,
 ) -> Result<String, NucleoError> {
     let params = req.get("params").cloned().unwrap_or_else(|| json!({}));
-    let name = params.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
-    let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let name = params
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("")
+        .to_string();
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let vbox = Vbox::new(cfg);
 
     // Lector de argumento string obligatorio.
@@ -136,7 +150,10 @@ fn handle_call(
             "rua.snapshot_restore" => vbox.snapshot_restore(&s("vm")?, &s("snapshot")?),
 
             "rua.start" => {
-                let headless = args.get("headless").and_then(|v| v.as_bool()).unwrap_or(true);
+                let headless = args
+                    .get("headless")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
                 vbox.start(&s("vm")?, headless)
             }
 
@@ -184,7 +201,11 @@ fn handle_call(
                 let prog_args: Vec<String> = args
                     .get("args")
                     .and_then(|v| v.as_array())
-                    .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
                     .unwrap_or_default();
 
                 // --- Candado de ejecución (host-side, sin flag del cliente) ---
@@ -206,7 +227,8 @@ fn handle_call(
                         RiskLevel::Alto => {
                             if !cfg.allow_dangerous {
                                 return Err(NucleoError::Rechazada(
-                                    "programa no declarado y allow_dangerous está desactivado".into(),
+                                    "programa no declarado y allow_dangerous está desactivado"
+                                        .into(),
                                 ));
                             }
                             let token = s("approval_token")?;
@@ -215,10 +237,18 @@ fn handle_call(
                     }
                 }
 
-                vbox.run_guest(&vm, &program, &prog_args, &s("guest_user")?, &s("password_file")?)
+                vbox.run_guest(
+                    &vm,
+                    &program,
+                    &prog_args,
+                    &s("guest_user")?,
+                    &s("password_file")?,
+                )
             }
 
-            other => Err(NucleoError::Args(format!("herramienta desconocida: {other}"))),
+            other => Err(NucleoError::Args(format!(
+                "herramienta desconocida: {other}"
+            ))),
         }
     })();
 
@@ -233,8 +263,7 @@ fn handle_call(
 fn tool_list() -> Vec<Value> {
     let vm = || json!({ "type": "string", "description": "Nombre de la VM (debe estar en la allowlist)" });
     let guest_user = || json!({ "type": "string", "description": "Usuario dentro de la VM" });
-    let password_file =
-        || json!({ "type": "string", "description": "Ruta a un archivo con la contraseña (no la contraseña en claro)" });
+    let password_file = || json!({ "type": "string", "description": "Ruta a un archivo con la contraseña (no la contraseña en claro)" });
 
     vec![
         json!({
@@ -342,7 +371,10 @@ fn write_message<W: Write>(out: &mut W, msg: &Value) {
 
 fn reply<W: Write>(out: &mut W, id: Option<Value>, result: Value) {
     if let Some(id) = id {
-        write_message(out, &json!({ "jsonrpc": "2.0", "id": id, "result": result }));
+        write_message(
+            out,
+            &json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+        );
     }
 }
 

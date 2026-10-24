@@ -7,8 +7,8 @@
 //!
 //! Uso: rua-orquestador --nucleo <ruta/rua-nucleo> --config <ruta/rua.config.json>
 
-use rua_orquestador::NucleoStdio;
 use rua_orquestador::Nucleo;
+use rua_orquestador::NucleoStdio;
 use serde_json::json;
 
 fn main() {
@@ -43,7 +43,12 @@ fn main() {
     match n.tool("rua.list_vms", json!({})) {
         Ok(v) => {
             println!("conexión con el núcleo OK. VMs:");
-            println!("{}", v.get("stdout").and_then(|x| x.as_str()).unwrap_or("(vacío)"));
+            println!(
+                "{}",
+                v.get("stdout")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("(vacío)")
+            );
         }
         Err(e) => {
             eprintln!("[rua-orquestador] list_vms falló: {e}");

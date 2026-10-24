@@ -91,7 +91,10 @@ fn main() {
 fn atender(stream: TcpStream, out: Arc<Mutex<std::fs::File>>, print: bool) {
     // Timeout defensivo: un cliente lento no debe bloquear un hilo para siempre.
     let _ = stream.set_read_timeout(Some(Duration::from_secs(10)));
-    let par = stream.peer_addr().map(|a| a.to_string()).unwrap_or_default();
+    let par = stream
+        .peer_addr()
+        .map(|a| a.to_string())
+        .unwrap_or_default();
 
     let (eventos, err) = leer_todos(stream);
     for ev in &eventos {

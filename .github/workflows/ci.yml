@@ -1,0 +1,51 @@
+name: CI
+
+# Dispara en la rama donde vive el codigo (master) y en cada PR.
+# NOTA: la rama por defecto del repo debe ser 'master'. Mientras siga
+# siendo 'Origen' (rama vacia), los PR y el badge apuntan a la rama
+# equivocada: ese es exactamente PA-165 (CI vigilando una rama muerta).
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: fmt + clippy + test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux y Windows a proposito: PA-166 fue un fallo de compilacion
+        # solo-Windows (termios sin cfg(unix)). Un solo runner no lo habria
+        # visto. El workspace es logica pura (los tests del nucleo no
+        # spawnean VBoxManage; orquestador usa mock), asi que corre en CI.
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar toolchain estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache de cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Formato (solo Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace --all-targets
+
+      - name: Doctests
+        run: cargo test --workspace --doc

@@ -31,3 +31,4 @@ sink-netstat*
 # Cruft de SO
 .DS_Store
 Thumbs.db
+cargo-test-ws.txt

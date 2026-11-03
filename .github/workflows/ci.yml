@@ -29,9 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar toolchain estable
-        uses: dtolnay/rust-toolchain@stable
+      # Pinado a 1.97.0 a proposito: DEBE coincidir con rust-toolchain.toml.
+      # Con @stable el CI formateaba con un rustfmt distinto al local y el
+      # job de Formato salia rojo aunque el codigo estuviera bien: "verde en
+      # un rustfmt" no es "verde en el otro".
+      - name: Instalar toolchain 1.97.0 (coincide con rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.97.0
           components: rustfmt, clippy
 
       - name: Cache de cargo

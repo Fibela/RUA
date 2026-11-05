@@ -32,3 +32,5 @@ sink-netstat*
 .DS_Store
 Thumbs.db
 cargo-test-ws.txt
+sink-*.jsonl
+*.bak.old

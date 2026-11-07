@@ -67,3 +67,41 @@ verificado en destino no cuenta como reconstruido.
 
 Las salidas (`sink-*.jsonl`) son resultado, no receta: estan en .gitignore. Lo que se
 versiona es el script que las produce y esta hoja.
+
+## Toolchain de construccion — CONFUNDIDOR DECLARADO
+
+Medido sobre el propio ELF, no supuesto:
+
+| Artefacto | sha256 | rustc que lo construyo | Fecha del binario |
+|---|---|---|---|
+| `eje-agente` de la golden | `b282c4bb…` | **1.85.1** (`/rustc/4eb161250e340c8f48f66e2b929ef4a5bed7c181`) | 24-oct-2026 |
+
+Metodo: `sha256sum` del binario + cadena de version embebida y ruta `/rustc/<commit>`
+extraidas con `strings`. Reproducible con el propio binario en mano.
+
+**Los tres compiladores en juego no coinciden:**
+
+- El binario del sensor que mide el laboratorio: **1.85.1**.
+- Lo que el CI de Eje-Latam bendice hoy: **1.88**.
+- Lo que `Fibela/RUA` pina para sus propios crates: **1.97.0**.
+
+**Por que importa, y cuanto.** Dos cosas distintas, que no hay que mezclar:
+
+1. **Para PA-169 no es causa plausible.** PA-169 es un defecto de enrutado a nivel de fuente
+   (`syslog: None` en la rama `NoVerifica`), determinista; la version del compilador no lo
+   produce ni lo tapa. La medicion del Paso 0 sigue siendo valida *declarando esto*.
+2. **Lo que si importa es la FECHA del build.** `b282c4bb` es del 24-oct. Antes de correr el
+   Paso 0 hay que confirmar que los cuatro anclajes —`salida.rs:579`, `main.rs:632`,
+   `main.rs:671`, `main.rs:713`— no han cambiado entre la fuente de ese binario y HEAD. Si
+   cambiaron, el Paso 0 mediria comportamiento rancio y hay que reconstruir la cadena antes.
+
+**Y un hecho aparte, mas serio que el desajuste:** 1.85 es justamente el pin que impedia
+remediar **RUSTSEC-2026-0385** (saltos sobre valores secretos en las primitivas de tiempo
+constante bajo ML-KEM y ML-DSA, RPT-109/110). El sensor de la golden es, por tanto, un build
+**pre-remediacion** de ese aviso. Para PA-169 da igual; para los otros usos del laboratorio
+—validar detecciones de ASC, demo de ransomware, analisis de malware— no da igual.
+
+**Tarea pendiente, deliberada y aparte:** reconstruir la cadena desde HEAD con el toolchain que
+CI bendice. Cambia el sha256 del binario, asi que **invalida `b282c4bb`, `base-agente-pa163` y
+`base-inventario-aceptado`**: es un rehacer completo con re-medicion de procedencia. Se agenda
+a proposito; no se cuela dentro de otra medicion.
